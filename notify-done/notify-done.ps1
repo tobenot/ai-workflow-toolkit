@@ -53,13 +53,18 @@ if (-not $Worker) {
 # worker 模式：执行提醒逻辑
 # =============================
 
-# --- Step 1: Professional notification tone ---
+# --- Step 1: Cyberpunk / DHV Magellan style notification tone ---
 if (-not $NoBeep) {
     try {
-        [Console]::Beep(784, 100)
-        Start-Sleep -Milliseconds 60
-        [Console]::Beep(988, 200)
-        Start-Sleep -Milliseconds 150
+        $toneScript = Join-Path $PSScriptRoot "notify-tone.ps1"
+        if (Test-Path $toneScript) {
+            & $toneScript -Volume $Volume
+        } else {
+            # Fallback: 简单双音
+            [Console]::Beep(784, 200)
+            Start-Sleep -Milliseconds 80
+            [Console]::Beep(988, 300)
+        }
     } catch {
         # Best-effort
     }
