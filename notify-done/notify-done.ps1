@@ -7,13 +7,24 @@
 # - worker 模式：真正执行 Beep / 任务栏闪烁 / TTS / 持久浮窗
 
 param(
-    [string]$Message = "任务完成！",
+    [string]$Message,
     [ValidateRange(0, 100)]
-    [int]$Volume = 100,
+    [int]$Volume,
     [switch]$NoBeep,
     [switch]$NoPopup,
     [switch]$Worker
 )
+
+# --- 加载配置 ---
+$Config = @{}
+$configDefault = Join-Path $PSScriptRoot "notify-done.config.ps1"
+$configUser    = Join-Path $PSScriptRoot "notify-done.config.user.ps1"
+if (Test-Path $configDefault) { . $configDefault }
+if (Test-Path $configUser)    { . $configUser }
+
+# 用配置填充未指定的参数
+if ([string]::IsNullOrEmpty($Message))              { $Message = $Config.DefaultMessage }
+if (-not $PSBoundParameters.ContainsKey('Volume'))   { $Volume  = $Config.DefaultVolume }
 
 # =============================
 # 启动器模式（默认）：非阻塞
@@ -53,14 +64,20 @@ if (-not $Worker) {
 # worker 模式：执行提醒逻辑
 # =============================
 
-# --- Step 1: 科幻远方警报提示音 (Sci-fi distant alert tone) ---
+# --- Step 1: 科幻远方警报提示音 (非阻塞，后台子进程播放) ---
 if (-not $NoBeep) {
     try {
         $toneScript = Join-Path $PSScriptRoot "notify-tone.ps1"
         if (Test-Path $toneScript) {
-            & $toneScript -Volume $Volume
+            Start-Process powershell.exe -ArgumentList @(
+                "-NoProfile",
+                "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
+                "-File", "`"$toneScript`"",
+                "-Volume", "$Volume"
+            ) -WindowStyle Hidden | Out-Null
         } else {
-            # Fallback: 简单双音
+            # Fallback: 简单双音（同步但极短，不影响体验）
             [Console]::Beep(784, 200)
             Start-Sleep -Milliseconds 80
             [Console]::Beep(988, 300)
@@ -125,7 +142,7 @@ try {
     Add-Type -AssemblyName System.Speech
     $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
     $synth.Volume = $Volume
-    $synth.Rate = 0
+    $synth.Rate = $Config.TTS.Rate
 
     # 查找可用的中文和英文语音
     $allVoices = $synth.GetInstalledVoices()
@@ -163,7 +180,8 @@ try {
     } else {
         # 单语模式（fallback）：用中文语音读全部
         if ($zhVoiceName) { $synth.SelectVoice($zhVoiceName) }
-        $synth.Speak("AI工作完成。$Message")
+        $prefix = if ($Config.TTS.SinglePrefix) { $Config.TTS.SinglePrefix } else { "" }
+        $synth.Speak("$prefix$Message")
     }
 
     $synth.Dispose()

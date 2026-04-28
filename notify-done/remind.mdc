@@ -14,7 +14,7 @@ After completing a task, you **must** call the reminder script to notify the use
 powershell -ExecutionPolicy Bypass -File <path-to>/notify-done/notify-done.ps1 "handoff report content"
 ```
 
-> Replace `<path-to>` with the actual path where you placed the script.
+> Replace `<path-to>` with the actual path where you placed the `notify-done` folder. For example `D:/tools/notify-done/notify-done.ps1`.
 
 - **When to call**: After all requested work is done and the result is ready to hand off.
 - **Bilingual broadcast**: Use `[中文] ... | [EN] ...` format in a single call.

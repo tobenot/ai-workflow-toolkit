@@ -3,6 +3,9 @@
 *.out
 *.log
 
+# 用户自定义配置（不随 git 提交）
+notify-done.config.user.ps1
+
 # 临时文件
 *.tmp
 *.bak

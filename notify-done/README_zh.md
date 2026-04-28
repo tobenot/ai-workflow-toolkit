@@ -34,7 +34,23 @@ powershell -ExecutionPolicy Bypass -File notify-done.ps1 "你的交接消息"
 | `notify-done.ps1` | 主脚本（提示音 + 任务栏闪烁 + TTS + 启动浮窗） |
 | `notify-popup.ps1` | 浮窗脚本（独立进程，WinForms UI） |
 | `notify-tone.ps1` | 提示音合成器（纯 PowerShell 逐采样生成 WAV） |
+| `notify-done.config.ps1` | 默认配置（颜色、字体、音量、时长等） |
 | `音效设计探索记录.md` | 音效设计探索与迭代记录 |
+
+## 配置
+
+所有可调参数（默认音量、TTS 语速、浮窗颜色/字体/窗口尺寸、音效时长等）都集中在 `notify-done.config.ps1` 中。
+
+**不要直接改这个文件！** 请在同目录下创建 `notify-done.config.user.ps1`，只写你想覆盖的项：
+
+```powershell
+# notify-done.config.user.ps1（示例）
+$Config.DefaultVolume = 60
+$Config.TTS.Rate = 1
+$Config.Popup.AccentColor = @(255, 128, 0)
+```
+
+用户配置在默认配置之后加载，会覆盖同名项。`notify-done.config.user.ps1` 已被 gitignore。
 
 ## 建议的 Message 写法
 

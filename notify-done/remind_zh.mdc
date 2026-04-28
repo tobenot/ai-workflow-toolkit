@@ -16,7 +16,7 @@ provider: local
 powershell -ExecutionPolicy Bypass -File <path-to>/notify-done/notify-done.ps1 "交接报告内容"
 ```
 
-> 将 `<path-to>` 替换为你实际放置脚本的路径。
+> 将 `<path-to>` 替换为你实际放置 `notify-done` 文件夹的路径。例如 `D:/tools/notify-done/notify-done.ps1`。
 
 - **调用时机**：所有请求完成后，结果可交付时调用。
 - **双播报**：`[中文] ... | [EN] ...` 格式，一次调用。

@@ -5,14 +5,25 @@
 
 param(
     [ValidateRange(0, 100)]
-    [int]$Volume = 80
+    [int]$Volume
 )
+
+# --- 加载配置 ---
+$Config = @{}
+$configDefault = Join-Path $PSScriptRoot "notify-done.config.ps1"
+$configUser    = Join-Path $PSScriptRoot "notify-done.config.user.ps1"
+if (Test-Path $configDefault) { . $configDefault }
+if (Test-Path $configUser)    { . $configUser }
+
+if (-not $PSBoundParameters.ContainsKey('Volume')) {
+    $Volume = if ($Config.DefaultVolume) { $Config.DefaultVolume } else { 80 }
+}
 
 function New-AlertTone {
     param([int]$Vol = 80)
 
-    $sampleRate   = 44100
-    $duration     = 10.0
+    $sampleRate   = if ($Config.AlertTone.SampleRate) { $Config.AlertTone.SampleRate } else { 44100 }
+    $duration     = if ($Config.AlertTone.Duration)   { $Config.AlertTone.Duration }   else { 10.0 }
     $totalSamples = [int]($sampleRate * $duration)
     $amplitude    = [math]::Min(($Vol / 100.0) * 0.95, 0.95)
 

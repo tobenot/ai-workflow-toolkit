@@ -4,6 +4,19 @@ param(
     [string]$Message = ""
 )
 
+# --- 加载配置 ---
+$Config = @{}
+$configDefault = Join-Path $PSScriptRoot "notify-done.config.ps1"
+$configUser    = Join-Path $PSScriptRoot "notify-done.config.user.ps1"
+if (Test-Path $configDefault) { . $configDefault }
+if (Test-Path $configUser)    { . $configUser }
+
+# 简便取色函数：从 @(R,G,B) 数组创建 Color
+function Get-ConfigColor {
+    param([int[]]$RGB)
+    return [System.Drawing.Color]::FromArgb($RGB[0], $RGB[1], $RGB[2])
+}
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -57,9 +70,11 @@ function Show-HandoffPopup {
         [string]$Timestamp
     )
 
-    $formWidth = 440
-    $formHeight = 340
-    $cornerRadius = 14
+    $pc = $Config.Popup
+
+    $formWidth = $pc.Width
+    $formHeight = $pc.Height
+    $cornerRadius = $pc.CornerRadius
 
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
     $rng = New-Object System.Random
@@ -70,18 +85,24 @@ function Show-HandoffPopup {
     $posX = $rng.Next($minX, $maxX)
     $posY = $rng.Next($minY, $maxY)
 
-    $bgColor = [System.Drawing.Color]::FromArgb(18, 20, 28)
-    $titleColor = [System.Drawing.Color]::FromArgb(26, 29, 39)
-    $accentColor = [System.Drawing.Color]::FromArgb(66, 153, 255)
-    $accentSoft = [System.Drawing.Color]::FromArgb(34, 78, 132)
-    $borderColor = [System.Drawing.Color]::FromArgb(58, 65, 82)
-    $textPrimary = [System.Drawing.Color]::FromArgb(242, 245, 250)
-    $textSecondary = [System.Drawing.Color]::FromArgb(162, 170, 184)
-    $btnBg = [System.Drawing.Color]::FromArgb(42, 46, 58)
-    $btnHover = [System.Drawing.Color]::FromArgb(56, 62, 76)
-    $btnPrimaryBg = [System.Drawing.Color]::FromArgb(38, 115, 220)
-    $btnPrimaryHover = [System.Drawing.Color]::FromArgb(55, 140, 250)
+    $bgColor = Get-ConfigColor $pc.BgColor
+    $titleColor = Get-ConfigColor $pc.TitleColor
+    $accentColor = Get-ConfigColor $pc.AccentColor
+    $accentSoft = Get-ConfigColor $pc.AccentSoft
+    $borderColor = Get-ConfigColor $pc.BorderColor
+    $textPrimary = Get-ConfigColor $pc.TextPrimary
+    $textSecondary = Get-ConfigColor $pc.TextSecondary
+    $btnBg = Get-ConfigColor $pc.BtnBg
+    $btnHover = Get-ConfigColor $pc.BtnHover
+    $btnPrimaryBg = Get-ConfigColor $pc.BtnPrimaryBg
+    $btnPrimaryHover = Get-ConfigColor $pc.BtnPrimaryHover
+    $separatorColor = Get-ConfigColor $pc.SeparatorColor
+    $glowTopColor = Get-ConfigColor $pc.GlowTopColor
+    $copiedBtnColor = Get-ConfigColor $pc.CopiedBtnColor
     $white = [System.Drawing.Color]::White
+
+    $fontFamily = $pc.FontFamily
+    $fontFamilyMono = $pc.FontFamilyMono
 
     $form = New-Object System.Windows.Forms.Form
     $form.Text = $TextTitle
@@ -93,7 +114,7 @@ function Show-HandoffPopup {
     $form.BackColor = $bgColor
     $form.TopMost = $true
     $form.ShowInTaskbar = $true
-    $form.Opacity = 0.98
+    $form.Opacity = $pc.Opacity
 
     $formPath = New-RoundedRectanglePath -Width $formWidth -Height $formHeight -Radius $cornerRadius
     $form.Region = New-Object System.Drawing.Region($formPath)
@@ -105,8 +126,7 @@ function Show-HandoffPopup {
 
         $glowBrush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
             (New-Object -TypeName System.Drawing.Rectangle -ArgumentList 0, 0, $sender.Width, 96),
-
-            [System.Drawing.Color]::FromArgb(48, 86, 138),
+            $glowTopColor,
             $bgColor,
             [System.Drawing.Drawing2D.LinearGradientMode]::Vertical
         )
@@ -117,7 +137,7 @@ function Show-HandoffPopup {
         $g.DrawPath($borderPen, $formPath)
         $borderPen.Dispose()
 
-        $linePen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(44, 50, 64), 1)
+        $linePen = New-Object System.Drawing.Pen($separatorColor, 1)
         $g.DrawLine($linePen, 18, 48, $sender.Width - 18, 48)
         $linePen.Dispose()
     })
@@ -189,7 +209,7 @@ function Show-HandoffPopup {
 
     $titleLabel = New-Object System.Windows.Forms.Label
     $titleLabel.Text = $TextTitle
-    $titleLabel.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 11, [System.Drawing.FontStyle]::Bold)
+    $titleLabel.Font = New-Object System.Drawing.Font($fontFamily, $pc.TitleFontSize, [System.Drawing.FontStyle]::Bold)
     $titleLabel.ForeColor = $textPrimary
     $titleLabel.Location = New-Object -TypeName System.Drawing.Point -ArgumentList 46, 12
 
@@ -199,7 +219,7 @@ function Show-HandoffPopup {
 
     $timeLabel = New-Object System.Windows.Forms.Label
     $timeLabel.Text = $Timestamp
-    $timeLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $timeLabel.Font = New-Object System.Drawing.Font($fontFamilyMono, $pc.HintFontSize)
     $timeLabel.ForeColor = $textSecondary
     $timeX = $formWidth - 142
     $timeLabel.Location = New-Object -TypeName System.Drawing.Point -ArgumentList $timeX, 15
@@ -216,7 +236,7 @@ function Show-HandoffPopup {
     $msgBox.ScrollBars = 'Vertical'
     $msgBox.WordWrap = $true
     $msgBox.Text = $PopupMessage
-    $msgBox.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 10)
+    $msgBox.Font = New-Object System.Drawing.Font($fontFamily, $pc.MsgFontSize)
     $msgBox.BackColor = $bgColor
     $msgBox.ForeColor = $textPrimary
     $msgBox.BorderStyle = 'None'
@@ -229,7 +249,7 @@ function Show-HandoffPopup {
 
     $hintDot = New-Object System.Windows.Forms.Label
     $hintDot.Text = "i"
-    $hintDot.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+    $hintDot.Font = New-Object System.Drawing.Font($fontFamilyMono, 8, [System.Drawing.FontStyle]::Bold)
     $hintDot.ForeColor = $accentColor
     $hintDot.BackColor = [System.Drawing.Color]::Transparent
     $hintDot.Location = New-Object -TypeName System.Drawing.Point -ArgumentList 22, 236
@@ -240,7 +260,7 @@ function Show-HandoffPopup {
 
     $hintLabel = New-Object System.Windows.Forms.Label
     $hintLabel.Text = $TextHint
-    $hintLabel.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
+    $hintLabel.Font = New-Object System.Drawing.Font($fontFamily, $pc.HintFontSize)
     $hintLabel.ForeColor = $textSecondary
     $hintLabel.Location = New-Object -TypeName System.Drawing.Point -ArgumentList 44, 235
 
@@ -261,7 +281,7 @@ function Show-HandoffPopup {
 
         $btn = New-Object System.Windows.Forms.Button
         $btn.Text = $Text
-        $btn.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9, [System.Drawing.FontStyle]::Bold)
+        $btn.Font = New-Object System.Drawing.Font($fontFamily, $pc.BtnFontSize, [System.Drawing.FontStyle]::Bold)
         $btn.Location = New-Object -TypeName System.Drawing.Point -ArgumentList $X, $Y
         $btn.Size = New-Object -TypeName System.Drawing.Size -ArgumentList $Width, 40
 
@@ -303,7 +323,7 @@ function Show-HandoffPopup {
     $btnCopy.Add_Click({
         [System.Windows.Forms.Clipboard]::SetText($this.Tag.Message)
         $this.Text = $this.Tag.CopiedText
-        $this.BackColor = [System.Drawing.Color]::FromArgb(42, 146, 78)
+        $this.BackColor = $copiedBtnColor
         $timer = New-Object System.Windows.Forms.Timer
         $timer.Interval = 1500
         # Store the button ref in timer's Tag so the Tick callback can find it
@@ -321,11 +341,13 @@ function Show-HandoffPopup {
     $form.Controls.Add($btnCopy)
 
     $form.Opacity = 0
+    $targetOpacity = $pc.Opacity
+    $fadeStepVal = $pc.FadeStep
     $fadeTimer = New-Object System.Windows.Forms.Timer
     $fadeTimer.Interval = 10
     $fadeTimer.Add_Tick({
-        if ($form.Opacity -lt 0.98) {
-            $form.Opacity = [Math]::Min(0.98, $form.Opacity + 0.05)
+        if ($form.Opacity -lt $targetOpacity) {
+            $form.Opacity = [Math]::Min($targetOpacity, $form.Opacity + $fadeStepVal)
         } else {
             $fadeTimer.Stop()
             $fadeTimer.Dispose()

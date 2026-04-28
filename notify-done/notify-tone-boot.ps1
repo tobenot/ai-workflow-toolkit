@@ -13,14 +13,25 @@
 
 param(
     [ValidateRange(0, 100)]
-    [int]$Volume = 80
+    [int]$Volume
 )
+
+# --- 加载配置 ---
+$Config = @{}
+$configDefault = Join-Path $PSScriptRoot "notify-done.config.ps1"
+$configUser    = Join-Path $PSScriptRoot "notify-done.config.user.ps1"
+if (Test-Path $configDefault) { . $configDefault }
+if (Test-Path $configUser)    { . $configUser }
+
+if (-not $PSBoundParameters.ContainsKey('Volume')) {
+    $Volume = if ($Config.DefaultVolume) { $Config.DefaultVolume } else { 80 }
+}
 
 function New-CyberTone {
     param([int]$Vol = 80)
 
-    $sampleRate = 44100
-    $duration   = 4.5
+    $sampleRate = if ($Config.Tone.SampleRate) { $Config.Tone.SampleRate } else { 44100 }
+    $duration   = if ($Config.Tone.Duration)   { $Config.Tone.Duration }   else { 4.5 }
     $totalSamples = [int]($sampleRate * $duration)
     $amplitude  = [math]::Min(($Vol / 100.0) * 0.9, 0.9)
 
