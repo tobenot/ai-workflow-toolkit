@@ -1,4 +1,4 @@
-# notify-tone.ps1 - 远方空谷巨兽 + 弥散混响晨唤铃 (Smeared Reverb Edition)
+# notify-tone.ps1 - 远方空谷巨兽 + 弥散警报嗡鸣 + 穿雾金属击打 (Loud Edition)
 # 纯 PowerShell 动态合成 WAV
 
 param(
@@ -12,7 +12,7 @@ function New-AlertTone {
     $sampleRate   = 44100
     $duration     = 10.0
     $totalSamples = [int]($sampleRate * $duration)
-    $amplitude    = [math]::Min(($Vol / 100.0) * 0.82, 0.82)
+    $amplitude    = [math]::Min(($Vol / 100.0) * 0.95, 0.95)
 
     $bitsPerSample = 16
     $channels      = 1
@@ -38,12 +38,12 @@ function New-AlertTone {
         $gEnv = & $globalEnv $t $duration
 
         # ========================================
-        # Layer 1: 远方空谷巨兽 (柔和低频底色)
+        # Layer 1: 远方空谷巨兽 (低频底色，音量提升)
         # ========================================
         $beacons = @(
-            @{ T = 0.0; F = 174.6; Vol = 0.22 },  # F3
-            @{ T = 2.8; F = 196.0; Vol = 0.22 },  # G3
-            @{ T = 5.6; F = 130.8; Vol = 0.30 }   # C3
+            @{ T = 0.0; F = 174.6; Vol = 0.30 },  # F3
+            @{ T = 2.8; F = 196.0; Vol = 0.30 },  # G3
+            @{ T = 5.6; F = 130.8; Vol = 0.38 }   # C3
         )
 
         foreach ($b in $beacons) {
@@ -86,65 +86,134 @@ function New-AlertTone {
         }
 
         # ========================================
-        # Layer 2: 弥散混响铃音 (Smeared Chimes)
+        # Layer 2: 缓慢警报嗡鸣 (Slow Siren Drone)
         # ========================================
-        # 关键变化：
-        #   - 去掉了高阶泛音（3x, 4x），只留基频和微失谐，让音色"圆"
-        #   - 主音衰减极慢（exp * -2.0 而非 -6.0），拖着长长的尾巴
-        #   - 回声 5 层密集叠加，间隔从 0.15s 到 1.8s，制造弥散"糊"感
-        #   - 回声用柔和的涌动式包络（rise-fall）而非硬瞬态
+        # 设计：
+        #   - 3 次缓慢的警报脉冲，跟随 Layer1 的巨兽节奏
+        #   - 每次嗡鸣持续 ~2s，缓起缓落（像远方的防空警报穿过浓雾传来）
+        #   - 中频为主（300~500Hz），不会轰耳朵，但有明确的"警报"辨识度
+        #   - 音色：双频叠加 + chorus 失谐 = 厚实模糊的嗡鸣
+        #   - 同样 5 层弥散回声，"糊上"
 
-        $chimes = @(
-            @{ T = 0.9;  F = 1046.5; Vol = 0.30 },  # C6
-            @{ T = 1.5;  F = 1318.5; Vol = 0.32 },  # E6
-
-            @{ T = 3.6;  F = 1174.7; Vol = 0.30 },  # D6
-            @{ T = 4.2;  F = 1567.9; Vol = 0.32 },  # G6
-
-            @{ T = 6.4;  F = 1567.9; Vol = 0.35 },  # G6
-            @{ T = 6.9;  F = 1318.5; Vol = 0.30 },  # E6
-            @{ T = 7.4;  F = 1046.5; Vol = 0.38 }   # C6 (落点)
+        # 三次警报脉冲：时间、基频、音量（提升音量）
+        $sirens = @(
+            @{ T = 0.5;  F = 392.0;  Vol = 0.42 },   # G4 — 第一声
+            @{ T = 3.3;  F = 440.0;  Vol = 0.45 },   # A4 — 略升，渐紧迫
+            @{ T = 6.1;  F = 349.2;  Vol = 0.50 }    # F4 — 下落，沉重收尾
         )
 
-        foreach ($c in $chimes) {
-            $cT = [double]$c.T
-            $cF = [double]$c.F
-            $cV = [double]$c.Vol
+        foreach ($s in $sirens) {
+            $sT   = [double]$s.T
+            $sF   = [double]$s.F
+            $sVol = [double]$s.Vol
 
-            if ($t -ge $cT) {
-                $td = $t - $cT
+            if ($t -ge $sT) {
+                $td = $t - $sT
 
-                # 主音：缓起音（0.06s）+ 极慢衰减（模拟远处传来 = 边缘模糊）
-                $attC = 0.06
-                $envC = 0.0
-                if ($td -lt $attC) {
-                    $envC = $td / $attC
-                } else {
-                    $envC = [math]::Exp(-($td - $attC) * 2.0)
+                # 缓起缓落的脉冲包络（像远方警报从雾中浮现再沉回去）
+                # rise 0.6s → sustain → fall（总约 2.2s 有声）
+                $sirenDur = 2.2
+                $riseT = 0.6
+                $fallT = 0.8
+                $envS = 0.0
+                if ($td -lt $riseT) {
+                    $r = $td / $riseT
+                    $envS = $r * $r  # 平滑曲线上升
+                } elseif ($td -lt ($sirenDur - $fallT)) {
+                    $envS = 1.0
+                } elseif ($td -lt $sirenDur) {
+                    $r = ($sirenDur - $td) / $fallT
+                    $envS = $r * $r  # 平滑曲线下降
+                }
+                # sustain 之后继续一个极长的残留尾音
+                if ($td -ge $sirenDur) {
+                    $envS = [math]::Exp(-($td - $sirenDur) * 1.5)
                 }
 
-                # 音色：只用基频 + 轻微失谐（chorus），没有高次谐波
-                # 这样声音是"圆润模糊"的，不是"清脆锐利"的
-                $chime = [math]::Sin($twoPi * $cF * $td) * 0.65 +
-                         [math]::Sin($twoPi * ($cF * 1.003) * $td) * 0.35  # 微失谐 chorus
+                # 音色：基频 + 五度泛音 + 双重 chorus 失谐 → 厚实模糊的嗡鸣
+                $siren = [math]::Sin($twoPi * $sF * $td) * 0.40 +
+                         [math]::Sin($twoPi * ($sF * 1.003) * $td) * 0.25 +  # chorus 1
+                         [math]::Sin($twoPi * ($sF * 0.997) * $td) * 0.25 +  # chorus 2 (反向失谐)
+                         [math]::Sin($twoPi * ($sF * 1.498) * $td) * 0.10    # 五度泛音（柔和）
 
-                $sample += $chime * $envC * $cV
+                $sample += $siren * $envS * $sVol
 
-                # 5 层弥散回声（密集叠加，制造"糊上"的混响尾巴）
-                $cDelays  = @(0.15, 0.35, 0.65, 1.1, 1.8)
-                $cEchoVol = @(0.50, 0.38, 0.28, 0.18, 0.10)
+                # 5 层弥散回声（与之前铃音版完全一致的"糊"法）
+                $sDelays  = @(0.2, 0.5, 0.9, 1.5, 2.2)
+                $sEchoVol = @(0.45, 0.32, 0.22, 0.14, 0.08)
 
-                for ($d = 0; $d -lt $cDelays.Count; $d++) {
-                    $eTd = $td - $cDelays[$d]
+                for ($d = 0; $d -lt $sDelays.Count; $d++) {
+                    $eTd = $td - $sDelays[$d]
                     if ($eTd -gt 0) {
-                        # 涌动包络：声音不是"砰"一下出现，而是缓缓涌起再散去
-                        $riseRate = 3.5 / (1.0 + $d * 0.5)
+                        $riseRate = 2.5 / (1.0 + $d * 0.6)
                         $eEnv = ($eTd * $riseRate) * [math]::Exp(-$eTd * $riseRate)
-                        # 每层回声加一点点额外失谐，让它越来越"糊"
-                        $detune = 1.0 + ($d + 1) * 0.002
-                        $eChime = [math]::Sin($twoPi * ($cF * $detune) * $eTd) * 0.6 +
-                                  [math]::Sin($twoPi * $cF * $eTd) * 0.4
-                        $sample += $eChime * $eEnv * $cV * $cEchoVol[$d]
+                        $detune = 1.0 + ($d + 1) * 0.003
+                        $eSiren = [math]::Sin($twoPi * ($sF * $detune) * $eTd) * 0.5 +
+                                  [math]::Sin($twoPi * $sF * $eTd) * 0.5
+                        $sample += $eSiren * $eEnv * $sVol * $sEchoVol[$d]
+                    }
+                }
+            }
+        }
+
+        # ========================================
+        # Layer 2.5: 穿雾金属敲击 (Foreground Strikes)
+        # ========================================
+        # 设计：每次警报嗡鸣的高潮时刻，一记清晰的金属敲击穿透嗡鸣
+        # 比嗡鸣高 1-2 个八度，有明确瞬态（"铛！"），但也带弥散尾巴
+        # 这就是"前景音"——让你在嗡嗡声中能明确抓到"有东西在响"
+
+        $strikes = @(
+            @{ T = 1.0;  F = 784.0;  Vol = 0.50 },   # G5 — 第一击（嗡鸣高潮处）
+            @{ T = 1.6;  F = 880.0;  Vol = 0.35 },   # A5 — 回击（稍弱）
+            @{ T = 3.8;  F = 880.0;  Vol = 0.52 },   # A5 — 第二击
+            @{ T = 4.5;  F = 987.8;  Vol = 0.36 },   # B5 — 回击
+            @{ T = 6.6;  F = 698.5;  Vol = 0.55 },   # F5 — 第三击（最重）
+            @{ T = 7.2;  F = 784.0;  Vol = 0.40 }    # G5 — 回击
+        )
+
+        foreach ($st in $strikes) {
+            $stT   = [double]$st.T
+            $stF   = [double]$st.F
+            $stVol = [double]$st.Vol
+
+            if ($t -ge $stT) {
+                $td = $t - $stT
+
+                # 击打包络：快起音（0.008s 硬瞬态）+ 中速衰减（模拟金属余韵穿过空气）
+                $attS = 0.008
+                $envSt = 0.0
+                if ($td -lt $attS) {
+                    $envSt = $td / $attS
+                } else {
+                    # 衰减不太快，让金属声拖一个"糊"的尾巴
+                    $envSt = [math]::Exp(-($td - $attS) * 3.0)
+                }
+
+                # 音色：基频 + 轻微非谐波泛音（金属感）+ chorus
+                # 不用太多泛音，保持"圆润但可辨"
+                $strike = [math]::Sin($twoPi * $stF * $td) * 0.50 +
+                          [math]::Sin($twoPi * ($stF * 1.004) * $td) * 0.20 +   # chorus
+                          [math]::Sin($twoPi * ($stF * 2.003) * $td) * 0.15 +   # 非谐波二次泛音（金属）
+                          [math]::Sin($twoPi * ($stF * 2.997) * $td) * 0.08 +   # 非谐波三次泛音
+                          [math]::Sin($twoPi * ($stF * 0.996) * $td) * 0.07     # 反向 chorus
+
+                $sample += $strike * $envSt * $stVol
+
+                # 4 层弥散回声（让击打也"糊上"，但保留一点瞬态清晰度）
+                $stDelays  = @(0.18, 0.45, 0.85, 1.4)
+                $stEchoVol = @(0.38, 0.26, 0.16, 0.09)
+
+                for ($d = 0; $d -lt $stDelays.Count; $d++) {
+                    $eTd = $td - $stDelays[$d]
+                    if ($eTd -gt 0) {
+                        # 回声：涌动式但比主击打衰减更快（保证主击打突出）
+                        $riseRate = 3.0 / (1.0 + $d * 0.5)
+                        $eEnv = ($eTd * $riseRate) * [math]::Exp(-$eTd * $riseRate)
+                        $detune = 1.0 + ($d + 1) * 0.004
+                        $eStrike = [math]::Sin($twoPi * ($stF * $detune) * $eTd) * 0.55 +
+                                   [math]::Sin($twoPi * $stF * $eTd) * 0.45
+                        $sample += $eStrike * $eEnv * $stVol * $stEchoVol[$d]
                     }
                 }
             }
