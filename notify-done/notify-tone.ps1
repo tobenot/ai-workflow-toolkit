@@ -1,30 +1,19 @@
-# notify-tone.ps1 - 赛博朋克/DHV Magellan 风格通知音效生成器
-# 纯 PowerShell 动态合成 WAV，无需外部音频文件
-#
-# Usage:
-#   powershell -ExecutionPolicy Bypass -File notify-tone.ps1 [-Volume 0-100]
-#
-# 设计思路：
-#   模拟 Death Stranding 2 DHV Magellan 官方提示音风格
-#   - 丰富和弦层叠，空灵悠长
-#   - 金属质感的叮咚 + 柔和的合成器 pad
-#   - 多层回声逐渐消散，空间感极强
-#   - 平静、专业、高级感
+# notify-tone.ps1 - 远方空谷巨兽 + 弥散混响晨唤铃 (Smeared Reverb Edition)
+# 纯 PowerShell 动态合成 WAV
 
 param(
     [ValidateRange(0, 100)]
     [int]$Volume = 80
 )
 
-function New-CyberTone {
+function New-AlertTone {
     param([int]$Vol = 80)
 
-    $sampleRate = 44100
-    $duration   = 4.5
+    $sampleRate   = 44100
+    $duration     = 10.0
     $totalSamples = [int]($sampleRate * $duration)
-    $amplitude  = [math]::Min(($Vol / 100.0) * 0.9, 0.9)
+    $amplitude    = [math]::Min(($Vol / 100.0) * 0.82, 0.82)
 
-    # WAV 参数
     $bitsPerSample = 16
     $channels      = 1
     $byteRate      = $sampleRate * $channels * ($bitsPerSample / 8)
@@ -34,162 +23,161 @@ function New-CyberTone {
     $samples = New-Object 'double[]' $totalSamples
     $twoPi   = 2.0 * [math]::PI
 
-    # ==============================
-    # 和弦定义 (Cmaj9 → Fmaj7 的柔和进行)
-    # ==============================
-
-    # Chord 1: Cmaj9  (C4 E4 G4 B4 D5)
-    $chord1 = @(261.6, 329.6, 392.0, 493.9, 587.3)
-    # Chord 2: Fmaj7  (F3 A3 C4 E4)  — 更温暖，解决感
-    $chord2 = @(174.6, 220.0, 261.6, 329.6)
-
-    # 叮音频率（高频泛音，金属质感）
-    $bell1 = 1318.5   # E6
-    $bell2 = 1568.0   # G6
-    $bell3 = 1760.0   # A6
-    $bell4 = 2093.0   # C7
+    $globalEnv = {
+        param($t, $dur)
+        if ($t -gt ($dur - 3.0)) {
+            $fade = ($dur - $t) / 3.0
+            return [math]::Max(0, $fade * $fade) # 平方淡出，更柔
+        }
+        return 1.0
+    }
 
     for ($i = 0; $i -lt $totalSamples; $i++) {
         $t = $i / $sampleRate
         $sample = 0.0
+        $gEnv = & $globalEnv $t $duration
 
         # ========================================
-        # Layer 1: Synth Pad — 和弦垫底（悠长，温暖）
+        # Layer 1: 远方空谷巨兽 (柔和低频底色)
         # ========================================
-
-        # Chord 1: 0s ~ 3s，缓慢淡入淡出
-        if ($t -lt 3.0) {
-            $envPad1 = 0.0
-            if ($t -lt 0.8) {
-                $envPad1 = $t / 0.8                      # 缓慢淡入
-            } elseif ($t -lt 2.0) {
-                $envPad1 = 1.0
-            } else {
-                $envPad1 = [math]::Max(0, (3.0 - $t) / 1.0)  # 缓慢淡出
-            }
-            $envPad1 = $envPad1 * $envPad1   # 平滑
-
-            $pad1 = 0.0
-            foreach ($freq in $chord1) {
-                $pad1 += [math]::Sin($twoPi * $freq * $t)
-                # 加微量失谐，产生温暖的 chorus 效果
-                $pad1 += [math]::Sin($twoPi * ($freq * 1.003) * $t) * 0.5
-            }
-            $sample += $pad1 / ($chord1.Count * 1.8) * $envPad1 * 0.22
-        }
-
-        # Chord 2: 1.8s ~ 4.5s，与 chord1 交叉淡入
-        if ($t -ge 1.8) {
-            $tc2 = $t - 1.8
-            $envPad2 = 0.0
-            if ($tc2 -lt 0.8) {
-                $envPad2 = $tc2 / 0.8
-            } elseif ($tc2 -lt 1.8) {
-                $envPad2 = 1.0
-            } else {
-                $envPad2 = [math]::Max(0, (2.7 - $tc2) / 0.9)
-            }
-            $envPad2 = $envPad2 * $envPad2
-
-            $pad2 = 0.0
-            foreach ($freq in $chord2) {
-                $pad2 += [math]::Sin($twoPi * $freq * $t)
-                $pad2 += [math]::Sin($twoPi * ($freq * 1.004) * $t) * 0.5
-            }
-            $sample += $pad2 / ($chord2.Count * 1.8) * $envPad2 * 0.22
-        }
-
-        # ========================================
-        # Layer 2: Bell Tones — 金属叮音和弦（多次触发 + 回声）
-        # ========================================
-
-        # 辅助函数：计算一个叮音在给定触发时间的贡献
-        # 触发时间, 衰减速率, 音量
-        $bellTriggers = @(
-            @{ Time = 0.05;  Decay = 2.8;  Vol = 0.40; Freqs = @($bell1, $bell2) },
-            @{ Time = 0.15;  Decay = 3.0;  Vol = 0.30; Freqs = @($bell3, $bell4) },
-            @{ Time = 0.80;  Decay = 2.5;  Vol = 0.25; Freqs = @($bell1, $bell3) },
-            # 回声 1
-            @{ Time = 1.50;  Decay = 3.5;  Vol = 0.15; Freqs = @($bell1, $bell2, $bell3) },
-            # 回声 2
-            @{ Time = 2.20;  Decay = 4.0;  Vol = 0.10; Freqs = @($bell2, $bell4) },
-            # 远处回声
-            @{ Time = 3.00;  Decay = 4.5;  Vol = 0.06; Freqs = @($bell1, $bell3) }
+        $beacons = @(
+            @{ T = 0.0; F = 174.6; Vol = 0.22 },  # F3
+            @{ T = 2.8; F = 196.0; Vol = 0.22 },  # G3
+            @{ T = 5.6; F = 130.8; Vol = 0.30 }   # C3
         )
 
-        foreach ($trigger in $bellTriggers) {
-            $trig = [double]$trigger.Time
-            if ($t -ge $trig) {
-                $tb = $t - $trig
-                $envBell = [math]::Exp(-$tb * [double]$trigger.Decay)
-                $bellSample = 0.0
-                foreach ($bf in $trigger.Freqs) {
-                    $bellSample += [math]::Sin($twoPi * $bf * $tb)
+        foreach ($b in $beacons) {
+            $bT = [double]$b.T
+            $bF = [double]$b.F
+            $bV = [double]$b.Vol
+
+            if ($t -ge $bT) {
+                $td = $t - $bT
+
+                # 极缓慢起音 + 极缓慢衰减
+                $att = 0.5
+                $env = 0.0
+                if ($td -lt $att) {
+                    $r = $td / $att
+                    $env = $r * $r
+                } else {
+                    $env = [math]::Exp(-($td - $att) * 0.5)
                 }
-                $bellSample = $bellSample / $trigger.Freqs.Count
-                $sample += $bellSample * $envBell * [double]$trigger.Vol
+
+                $tone = [math]::Sin($twoPi * $bF * $td) * 0.8 +
+                        [math]::Sin($twoPi * ($bF * 1.5) * $td) * 0.2
+
+                $sample += $tone * $env * $bV
+
+                # 多层弥散回声（低频）
+                $lowDelays  = @(0.7, 1.3, 2.0, 2.8)
+                $lowEchoVol = @(0.40, 0.28, 0.18, 0.10)
+                for ($d = 0; $d -lt $lowDelays.Count; $d++) {
+                    $eTd = $td - $lowDelays[$d]
+                    if ($eTd -gt 0) {
+                        # 涌动式包络：缓起缓落
+                        $rise = 1.2 / ($d + 1)
+                        $eEnv = ($eTd * $rise) * [math]::Exp(-$eTd * $rise)
+                        $eTone = [math]::Sin($twoPi * $bF * $eTd)
+                        $sample += $eTone * $eEnv * $bV * $lowEchoVol[$d]
+                    }
+                }
             }
         }
 
         # ========================================
-        # Layer 3: Sub Bass — 极低的底层脉动（体感）
+        # Layer 2: 弥散混响铃音 (Smeared Chimes)
         # ========================================
-        if ($t -ge 0.0 -and $t -lt 3.5) {
-            $envSub = 0.0
-            if ($t -lt 0.5) {
-                $envSub = $t / 0.5
-            } elseif ($t -lt 2.5) {
-                $envSub = 1.0
-            } else {
-                $envSub = [math]::Max(0, (3.5 - $t) / 1.0)
+        # 关键变化：
+        #   - 去掉了高阶泛音（3x, 4x），只留基频和微失谐，让音色"圆"
+        #   - 主音衰减极慢（exp * -2.0 而非 -6.0），拖着长长的尾巴
+        #   - 回声 5 层密集叠加，间隔从 0.15s 到 1.8s，制造弥散"糊"感
+        #   - 回声用柔和的涌动式包络（rise-fall）而非硬瞬态
+
+        $chimes = @(
+            @{ T = 0.9;  F = 1046.5; Vol = 0.30 },  # C6
+            @{ T = 1.5;  F = 1318.5; Vol = 0.32 },  # E6
+
+            @{ T = 3.6;  F = 1174.7; Vol = 0.30 },  # D6
+            @{ T = 4.2;  F = 1567.9; Vol = 0.32 },  # G6
+
+            @{ T = 6.4;  F = 1567.9; Vol = 0.35 },  # G6
+            @{ T = 6.9;  F = 1318.5; Vol = 0.30 },  # E6
+            @{ T = 7.4;  F = 1046.5; Vol = 0.38 }   # C6 (落点)
+        )
+
+        foreach ($c in $chimes) {
+            $cT = [double]$c.T
+            $cF = [double]$c.F
+            $cV = [double]$c.Vol
+
+            if ($t -ge $cT) {
+                $td = $t - $cT
+
+                # 主音：缓起音（0.06s）+ 极慢衰减（模拟远处传来 = 边缘模糊）
+                $attC = 0.06
+                $envC = 0.0
+                if ($td -lt $attC) {
+                    $envC = $td / $attC
+                } else {
+                    $envC = [math]::Exp(-($td - $attC) * 2.0)
+                }
+
+                # 音色：只用基频 + 轻微失谐（chorus），没有高次谐波
+                # 这样声音是"圆润模糊"的，不是"清脆锐利"的
+                $chime = [math]::Sin($twoPi * $cF * $td) * 0.65 +
+                         [math]::Sin($twoPi * ($cF * 1.003) * $td) * 0.35  # 微失谐 chorus
+
+                $sample += $chime * $envC * $cV
+
+                # 5 层弥散回声（密集叠加，制造"糊上"的混响尾巴）
+                $cDelays  = @(0.15, 0.35, 0.65, 1.1, 1.8)
+                $cEchoVol = @(0.50, 0.38, 0.28, 0.18, 0.10)
+
+                for ($d = 0; $d -lt $cDelays.Count; $d++) {
+                    $eTd = $td - $cDelays[$d]
+                    if ($eTd -gt 0) {
+                        # 涌动包络：声音不是"砰"一下出现，而是缓缓涌起再散去
+                        $riseRate = 3.5 / (1.0 + $d * 0.5)
+                        $eEnv = ($eTd * $riseRate) * [math]::Exp(-$eTd * $riseRate)
+                        # 每层回声加一点点额外失谐，让它越来越"糊"
+                        $detune = 1.0 + ($d + 1) * 0.002
+                        $eChime = [math]::Sin($twoPi * ($cF * $detune) * $eTd) * 0.6 +
+                                  [math]::Sin($twoPi * $cF * $eTd) * 0.4
+                        $sample += $eChime * $eEnv * $cV * $cEchoVol[$d]
+                    }
+                }
             }
-            # 65.4 Hz = C2，极低但可闻
-            $sub = [math]::Sin($twoPi * 65.4 * $t) + [math]::Sin($twoPi * 98.0 * $t) * 0.4
-            $sample += $sub * $envSub * 0.08
         }
 
         # ========================================
-        # Layer 4: 轻微颗粒感（模拟电子设备底噪）
+        # Layer 3: 极微弱的空气底噪
         # ========================================
-        $envNoise = 0.0
-        if ($t -lt 3.5) {
-            if ($t -lt 0.3) { $envNoise = $t / 0.3 }
-            elseif ($t -lt 2.8) { $envNoise = 1.0 }
-            else { $envNoise = [math]::Max(0, (3.5 - $t) / 0.7) }
-        }
+        $noiseEnv = $gEnv * 0.002
         $noise = (($i * 1103515245 + 12345) % 2147483648) / 2147483648.0 * 2 - 1
-        $sample += $noise * $envNoise * 0.008
+        $sample += $noise * $noiseEnv
 
-        # ========================================
-        # 软限幅 + 写入
-        # ========================================
-        $sample = $sample * $amplitude
+        $sample = $sample * $gEnv * $amplitude
         $sample = [math]::Max(-0.98, [math]::Min(0.98, $sample))
         $samples[$i] = $sample
     }
 
-    # ==============================
-    # 构建 WAV 内存流并播放
-    # ==============================
     $stream = New-Object System.IO.MemoryStream
     $writer = New-Object System.IO.BinaryWriter($stream)
 
-    # RIFF header
     $writer.Write([System.Text.Encoding]::ASCII.GetBytes("RIFF"))
     $writer.Write([int](36 + $dataSize))
     $writer.Write([System.Text.Encoding]::ASCII.GetBytes("WAVE"))
 
-    # fmt chunk
     $writer.Write([System.Text.Encoding]::ASCII.GetBytes("fmt "))
     $writer.Write([int]16)
-    $writer.Write([int16]1)              # PCM
+    $writer.Write([int16]1)
     $writer.Write([int16]$channels)
     $writer.Write([int]$sampleRate)
     $writer.Write([int]$byteRate)
     $writer.Write([int16]$blockAlign)
     $writer.Write([int16]$bitsPerSample)
 
-    # data chunk
     $writer.Write([System.Text.Encoding]::ASCII.GetBytes("data"))
     $writer.Write([int]$dataSize)
 
@@ -210,5 +198,4 @@ function New-CyberTone {
     $stream.Dispose()
 }
 
-# 执行
-New-CyberTone -Vol $Volume
+New-AlertTone -Vol $Volume
