@@ -1,96 +1,98 @@
 ---
-description: AI工作完成后的交接提醒规则
+description: AI task handoff reminder rules
 alwaysApply: true
 enabled: true
-updatedAt: 2026-04-28T14:44:00.000Z
+updatedAt: 2026-04-28T15:10:00.000Z
 provider: local
 ---
 
-## AI 工作交接提醒 🔔
+## AI Task Handoff Reminder 🔔
 
-任务完成后**必须**调用提醒脚本通知用户：
+After completing a task, you **must** call the reminder script to notify the user:
 
 ```bash
-powershell -ExecutionPolicy Bypass -File e:/ScientificLongevity/ScientificLongevity/tools/notify-done/notify-done.ps1 "交接报告内容"
+powershell -ExecutionPolicy Bypass -File <path-to>/notify-done/notify-done.ps1 "handoff report content"
 ```
 
-- **调用时机**：所有请求完成后，结果可交付时调用。
-- **双播报**：`[中文] ... | [EN] ...` 格式，一次调用。
-- **引号安全**：消息中的双引号先转义再传参。
+> Replace `<path-to>` with the actual path where you placed the script.
+
+- **When to call**: After all requested work is done and the result is ready to hand off.
+- **Bilingual broadcast**: Use `[中文] ... | [EN] ...` format in a single call.
+- **Quote safety**: Escape double quotes in the message before passing as argument.
 
 ---
 
-## 交接报告应包含的内容
+## What a Handoff Report Should Contain
 
-一份好的交接报告让人类快速判断"我现在需要做什么"。按以下顺序组织：
+A good handoff report lets the human quickly decide "What do I need to do now?" Organize it in this order:
 
-### 1. 做了什么（一句话结论）
-简明扼要，先说结论，后说细节。改了哪些文件，当前什么状态，能不能用。
+### 1. What Was Done (one-line conclusion)
+Be concise — conclusion first, details second. Which files changed, current status, does it work.
 
-### 2. 我的判断与取舍
-实现过程中，AI 不可避免会做一些判断。**如实交代**就好：
-- 选了什么方案、为什么选它
-- 需求不明确的地方，我是怎么假设的
-- 如果跳过或简化了什么，说一下原因
-- 如果引入了需求里没提到的概念或命名，说一下为什么
+### 2. My Judgments & Trade-offs
+During implementation, AI inevitably makes judgment calls. **Be transparent**:
+- What approach was chosen and why
+- How ambiguous requirements were interpreted
+- What was skipped or simplified, and why
+- Any new concepts or names introduced that weren't in the original spec
 
-> 这不是"认错"，而是正常的工作沟通。但**不能省略**——人类需要知道哪些是需求原文，哪些是你的理解。
-> 如果实现过程中觉得某个功能"没必要做"或"太少见"，**先说出来让人类决定**，不要自己跳过。
+> This isn't "admitting mistakes" — it's normal work communication. But **don't skip it** — humans need to know what came from the spec vs. your interpretation.
+> If you think a feature is "unnecessary" or "too rare", **say so and let the human decide**. Don't skip it silently.
 
-### 3. 需要人类看的地方
-- 需要在 UE 里验证的行为
-- 涉及核心系统的改动
-- 可能有副作用的地方
-- 与其他模块的交互
+### 3. What the Human Should Review
+- Behavior that needs manual verification
+- Changes to core systems
+- Potential side effects
+- Interactions with other modules
 
-### 4. 风险与限制（如有）
-- 未覆盖的边界情况
-- 临时方案
-- 对其他系统的潜在影响
+### 4. Risks & Limitations (if any)
+- Uncovered edge cases
+- Temporary solutions
+- Potential impact on other systems
 
-### 5. 建议下一步（如有）
-简短建议即可，不要替人类做决定。
+### 5. Suggested Next Steps (if any)
+Brief suggestions only — don't make decisions for the human.
 
 ---
 
-## 播报模板
+## Broadcast Template
 
-### 通用模板
+### General Template
 
 ```text
-[中文] 完成：<做了什么，当前状态>。我的判断：<取舍和假设，没有就写"严格按需求">。需要你看：<审查点>。风险：<如有>。 | [EN] Done: <what, current status>. My calls: <tradeoffs, or "followed spec strictly">. Review: <check points>. Risk: <if any>.
+[中文] 完成：<what was done, current status>。我的判断：<trade-offs and assumptions, or "严格按需求">。需要你看：<review points>。风险：<if any>。 | [EN] Done: <what, current status>. My calls: <tradeoffs, or "followed spec strictly">. Review: <check points>. Risk: <if any>.
 ```
 
-### 示例：正常完成
+### Example: Normal Completion
 
 ```text
-[中文] 完成：碰撞系统支持三种形状组合，改了 CollisionManager.cpp 和 ShapeUtils.h，可以编译运行。我的判断：严格按需求，三种碰撞都做了。需要你看：在编辑器里测一下三角形-扇形的碰撞精度。 | [EN] Done: Collision system supports all 3 shape combos. My calls: followed spec strictly. Review: test triangle-sector precision in editor.
+[中文] 完成：用户导出功能支持 CSV 和 Excel 两种格式，改了 ExportService.ts 和 FileUtils.ts，可以正常运行。我的判断：严格按需求，两种格式都做了。需要你看：导出大数据量时的性能表现。 | [EN] Done: User export supports CSV and Excel formats, modified ExportService.ts and FileUtils.ts, runs correctly. My calls: followed spec strictly. Review: performance with large datasets.
 ```
 
-### 示例：有取舍时
+### Example: With Trade-offs
 
 ```text
-[中文] 完成：地图编辑器拖拽功能，改了 MapEditor.cpp。我的判断：拖拽吸附用了网格对齐而不是自由定位，因为觉得编辑体验更好，你看看合不合适。需要你看：拖拽手感和吸附距离。 | [EN] Done: Map editor drag feature. My calls: used grid snapping instead of free positioning for better UX — please check if that works for you. Review: drag feel and snap distance.
+[中文] 完成：搜索结果分页功能，改了 SearchController.ts。我的判断：分页用了游标方式而不是 offset，因为大数据量下性能更好，你看看合不合适。需要你看：翻页交互和排序是否符合预期。 | [EN] Done: Search result pagination, modified SearchController.ts. My calls: used cursor-based instead of offset pagination for better large-dataset performance — please check if that works for you. Review: paging UX and sort order.
 ```
 
 ---
 
-## 工作过程中的习惯
+## Work Habits During Implementation
 
-- 遇到需求不明确时，**优先问用户**，而不是自己假设后闷头做
-- 觉得某个功能可以不做时，**先说出来**，等人确认
-- 自创概念或命名时，**当场说明**，不要攒到最后
-- 在代码中对非显而易见的判断加注释说明理由
+- When requirements are unclear, **ask the user first** instead of assuming and charging ahead
+- When you think a feature can be skipped, **say so first** and wait for confirmation
+- When introducing new concepts or naming, **explain immediately** — don't save it for the end
+- Add comments in code for non-obvious judgment calls
 
 ---
 
-## 不好的播报方式
+## Bad Broadcast Patterns
 
-- **空泛**：`任务完成。` —— 没说做了什么
-- **只报过程**：`修改了5个文件` —— 没说结果能不能用
-- **美化省略**：把"没做"说成"已优化" 
-- **隐藏判断**：做了取舍却不提
+- **Vague**: `Task complete.` — doesn't say what was done
+- **Process-only**: `Modified 5 files` — doesn't say whether it works
+- **Euphemistic omission**: Saying "optimized" when something wasn't done
+- **Hidden judgment**: Made trade-offs but didn't mention them
 
-## 不用播报的风险情况
+## Risks That Don't Need Broadcasting
 
-1. 编译检查返回 exit code 6。
+1. Build check returns exit code 6.

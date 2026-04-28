@@ -1,43 +1,45 @@
+**English** | [中文](README_zh.md)
+
 # notify-done
 
-AI 任务完成后的交接提醒：**提示音 + 中文语音播报 + 持久浮窗**。
+AI task handoff reminder: **notification tone + bilingual TTS + persistent popup**.
 
-浮窗不阻塞 AI 执行链路，需人工确认关闭。
+The popup runs in a separate process and never blocks the AI execution chain. It stays on screen until manually dismissed.
 
-## 用法
+## Usage
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File notify-done.ps1 "你的交接消息"
+powershell -ExecutionPolicy Bypass -File notify-done.ps1 "Your handoff message"
 ```
 
-## 参数
+## Parameters
 
-| 参数 | 说明 |
-|------|------|
-| `-Message <string>` | 提醒正文（默认 "任务完成！"） |
-| `-Volume <0-100>` | 语音音量（默认 100） |
-| `-NoBeep` | 不播放提示音 |
-| `-NoPopup` | 不弹浮窗 |
+| Parameter | Description |
+|-----------|-------------|
+| `-Message <string>` | Reminder text (default: "任务完成！") |
+| `-Volume <0-100>` | TTS volume (default: 100) |
+| `-NoBeep` | Skip the notification tone |
+| `-NoPopup` | Skip the persistent popup |
 
-## 浮窗按钮
+## Popup Buttons
 
-- **知道了** — 关闭提醒
-- **10/30 分钟后** — 延后再弹
-- **复制** — 复制正文到剪贴板
+- **Got it** — Dismiss the reminder
+- **10 / 30 min later** — Snooze and re-popup after delay
+- **Copy** — Copy the message body to clipboard
 
-## 文件结构
+## File Structure
 
-| 文件 | 作用 |
-|------|------|
-| `notify-done.ps1` | 主脚本（提示音 + 任务栏闪烁 + TTS + 启动浮窗） |
-| `notify-popup.ps1` | 浮窗脚本（独立进程，WinForms UI） |
+| File | Purpose |
+|------|---------|
+| `notify-done.ps1` | Main script (tone + taskbar flash + TTS + launches popup) |
+| `notify-popup.ps1` | Popup script (separate process, WinForms UI) |
 
-## 建议的 Message 写法
+## Recommended Message Format
 
-写成 **结果 / 风险 / 下一步**，让浮窗成为可执行的交接卡片：
+Structure your message as **Result / Risk / Next Step** so the popup becomes an actionable handoff card:
 
 ```text
-完成内容：受击反馈重构第一阶段已完成。
-风险说明：尚未全链路验收。
-建议下一步：请跑一次技能命中回归。
+Done: User export module refactored, supports CSV and Excel.
+Risk: Not yet stress-tested with large datasets.
+Next: Please run an export validation with production data.
 ```
