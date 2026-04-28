@@ -1,5 +1,7 @@
-# notify-tone.ps1 - 远方空谷巨兽 + 弥散警报嗡鸣 + 穿雾金属击打 (Loud Edition)
-# 纯 PowerShell 动态合成 WAV
+# notify-tone.ps1 - 科幻远方警报音效
+# 风格：空谷回响 + 弥散警报嗡鸣 + 穿雾金属击打
+# 设计详情见 音效设计探索记录.md
+# 纯 PowerShell 逐采样动态合成 WAV，无外部依赖
 
 param(
     [ValidateRange(0, 100)]

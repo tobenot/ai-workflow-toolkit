@@ -33,6 +33,8 @@ powershell -ExecutionPolicy Bypass -File notify-done.ps1 "Your handoff message"
 |------|---------|
 | `notify-done.ps1` | Main script (tone + taskbar flash + TTS + launches popup) |
 | `notify-popup.ps1` | Popup script (separate process, WinForms UI) |
+| `notify-tone.ps1` | Alert tone synthesizer (pure PowerShell WAV generation) |
+| `音效设计探索记录.md` | Sound design exploration log (Chinese) |
 
 ## Recommended Message Format
 

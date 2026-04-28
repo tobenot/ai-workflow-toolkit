@@ -33,6 +33,8 @@ powershell -ExecutionPolicy Bypass -File notify-done.ps1 "你的交接消息"
 |------|------|
 | `notify-done.ps1` | 主脚本（提示音 + 任务栏闪烁 + TTS + 启动浮窗） |
 | `notify-popup.ps1` | 浮窗脚本（独立进程，WinForms UI） |
+| `notify-tone.ps1` | 提示音合成器（纯 PowerShell 逐采样生成 WAV） |
+| `音效设计探索记录.md` | 音效设计探索与迭代记录 |
 
 ## 建议的 Message 写法
 

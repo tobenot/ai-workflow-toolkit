@@ -53,7 +53,7 @@ if (-not $Worker) {
 # worker 模式：执行提醒逻辑
 # =============================
 
-# --- Step 1: Cyberpunk / DHV Magellan style notification tone ---
+# --- Step 1: 科幻远方警报提示音 (Sci-fi distant alert tone) ---
 if (-not $NoBeep) {
     try {
         $toneScript = Join-Path $PSScriptRoot "notify-tone.ps1"
