@@ -13,15 +13,21 @@ if (-not $Config) {
     $Config = @{}
 }
 
+function Decode-Utf8Text {
+    param([string]$Base64)
+    return [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($Base64))
+}
+
 # ============================================================
 # General / 通用
 # ============================================================
-$Config.DefaultMessage     = "任务完成！"       # 默认提醒消息 / Default reminder message
-$Config.DefaultVolume      = 100                # 默认音量 0-100 / Default volume
+$Config.DefaultMessage     = Decode-Utf8Text "5Lu75Yqh5a6M5oiQ77yB"   # 默认提醒消息 / Default reminder message
+$Config.DefaultVolume      = 100                                  # 默认音量 0-100 / Default volume
 $Config.TTS                = @{
-    Rate           = 0                          # 语速 -10~10 / Speech rate
-    SinglePrefix   = "AI工作完成。"              # 单语模式前缀 / Prefix for single-language TTS
+    Rate           = 0                                            # 语速 -10~10 / Speech rate
+    SinglePrefix   = Decode-Utf8Text "QUnlt6XkvZzlrozmiJDjgII="  # 单语模式前缀 / Prefix for single-language TTS
 }
+
 
 # ============================================================
 # Popup / 浮窗

@@ -96,3 +96,22 @@ try { <# 主逻辑 #> } catch {
 ```
 
 也可用 `Start-Process -RedirectStandardError 'err.txt'` 捕获进程输出做诊断。
+
+---
+
+## 8. 2026-05-01 新系统迁移故障复盘（记录）
+
+**现象**：`notify-done.ps1` 启动后在加载 `notify-done.config.ps1` 时出现 parser error，提醒链路中断。
+
+**根因**：
+
+1. 配置文件中包含中文字面量，跨系统/宿主读取时发生编码解析偏差；
+2. 子进程入口硬编码 `powershell.exe`，在新宿主路径策略下存在兼容风险。
+
+**修复**：
+
+- 配置中文文案改为 Base64，运行时统一 UTF-8 解码；
+- 子进程启动改为动态解析当前 PowerShell 可执行路径。
+
+**验证**：入口模式与 `-Worker -NoPopup -NoBeep` 直连模式均可正常执行。
+

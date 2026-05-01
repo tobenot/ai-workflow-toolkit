@@ -52,7 +52,8 @@ if (-not $Worker) {
             if ($NoBeep) { $argList += "-NoBeep" }
             if ($NoPopup) { $argList += "-NoPopup" }
 
-            Start-Process powershell.exe -ArgumentList $argList -WindowStyle Hidden | Out-Null
+            Start-Process $PowerShellExe -ArgumentList $argList -WindowStyle Hidden | Out-Null
+
             return
         }
     } catch {
@@ -69,13 +70,14 @@ if (-not $NoBeep) {
     try {
         $toneScript = Join-Path $PSScriptRoot "notify-tone.ps1"
         if (Test-Path $toneScript) {
-            Start-Process powershell.exe -ArgumentList @(
+            Start-Process $PowerShellExe -ArgumentList @(
                 "-NoProfile",
                 "-ExecutionPolicy", "Bypass",
                 "-WindowStyle", "Hidden",
                 "-File", "`"$toneScript`"",
                 "-Volume", "$Volume"
             ) -WindowStyle Hidden | Out-Null
+
         } else {
             # Fallback: 简单双音（同步但极短，不影响体验）
             [Console]::Beep(784, 200)
@@ -122,13 +124,14 @@ if (-not $NoPopup) {
         $popupScript = Join-Path $PSScriptRoot "notify-popup.ps1"
         if (Test-Path $popupScript) {
             $escapedMessage = $Message -replace '"', '\"'
-            Start-Process powershell.exe -ArgumentList @(
+            Start-Process $PowerShellExe -ArgumentList @(
                 "-NoProfile",
                 "-ExecutionPolicy", "Bypass",
                 "-WindowStyle", "Hidden",
                 "-File", "`"$popupScript`"",
                 "-Message", "`"$escapedMessage`""
             ) -WindowStyle Hidden | Out-Null
+
         } else {
             Write-Host "[浮窗脚本未找到] $popupScript"
         }
